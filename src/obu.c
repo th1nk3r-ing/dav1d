@@ -1550,6 +1550,7 @@ ptrdiff_t dav1d_parse_obus(Dav1dContext *const c, Dav1dData *const in) {
             if (c->n_fc == 1) {
                 dav1d_thread_picture_ref(&c->out,
                                          &c->refs[c->frame_hdr->existing_frame_idx].p);
+                c->out.p.invisible = 0;
                 dav1d_picture_copy_props(&c->out.p,
                                          c->content_light, c->content_light_ref,
                                          c->mastering_display, c->mastering_display_ref,
@@ -1597,6 +1598,7 @@ ptrdiff_t dav1d_parse_obus(Dav1dContext *const c, Dav1dData *const in) {
                         progress != FRAME_ERROR)
                     {
                         dav1d_thread_picture_ref(&c->out, out_delayed);
+                        c->out.p.invisible = !out_delayed->visible;
                         c->event_flags |= dav1d_picture_get_event_flags(out_delayed);
                     }
                     dav1d_thread_picture_unref(out_delayed);

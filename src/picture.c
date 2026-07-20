@@ -38,6 +38,7 @@
 
 #include "src/internal.h"
 #include "src/log.h"
+#include "src/mem.h"
 #include "src/picture.h"
 #include "src/ref.h"
 #include "src/thread.h"
@@ -78,6 +79,22 @@ int dav1d_default_picture_alloc(Dav1dPicture *const p, void *const cookie) {
 }
 
 void dav1d_default_picture_release(Dav1dPicture *const p, void *const cookie) {
+    // Free analyzer extension storage (pred/pre_lpf/blk_data share one allocation
+    // when both EXPORT_PREDICTION and EXPORT_PREFILTER are set; blk_data may be a
+    // separate allocation when only EXPORT_BLKDATA is set).
+    if (p->pred[0]) {
+        dav1d_free_aligned(p->pred[0]);
+        p->pred[0] = p->pred[1] = p->pred[2] = NULL;
+        p->pre_lpf[0] = p->pre_lpf[1] = p->pre_lpf[2] = NULL;
+        p->blk_data = NULL;
+    } else if (p->pre_lpf[0]) {
+        dav1d_free_aligned(p->pre_lpf[0]);
+        p->pre_lpf[0] = p->pre_lpf[1] = p->pre_lpf[2] = NULL;
+        p->blk_data = NULL;
+    } else if (p->blk_data) {
+        dav1d_free_aligned(p->blk_data);
+        p->blk_data = NULL;
+    }
     dav1d_mem_pool_push(cookie, p->allocator_data);
 }
 
@@ -92,9 +109,56 @@ static void free_buffer(const uint8_t *const data, void *const user_data) {
     struct pic_ctx_context *pic_ctx = (struct pic_ctx_context*)data;
 
     pic_ctx->allocator.release_picture_callback(&pic_ctx->pic,
-                                                pic_ctx->allocator.cookie);
+                                                 pic_ctx->allocator.cookie);
     dav1d_mem_pool_push(user_data, pic_ctx);
 }
+
+static int picture_alloc_analyzer_storage(Dav1dContext *const c,
+                                          Dav1dPicture *const p,
+                                          const unsigned analyzer_flags)
+{
+    if (!analyzer_flags)
+        return 0;
+
+    const int aligned_w = (p->p.w + 127) & ~127;
+    const int aligned_h = (p->p.h + 127) & ~127;
+    int frame_mul = 0;
+    if (analyzer_flags & EXPORT_PREDICTION) frame_mul++;
+    if (analyzer_flags & EXPORT_PREFILTER) frame_mul += 1;
+    const size_t blk_sz = analyzer_flags & EXPORT_BLKDATA ?
+        (aligned_w >> 2) * (aligned_h >> 2) * sizeof(Av1Block) : 0;
+    const int ss_ver = p->p.layout == DAV1D_PIXEL_LAYOUT_I420;
+    const size_t y_sz = p->stride[0] * aligned_h;
+    const size_t uv_sz = p->stride[1] * (aligned_h >> ss_ver);
+    const size_t total_sz = (y_sz + 2 * uv_sz) * frame_mul + blk_sz;
+
+    uint8_t *data = dav1d_alloc_aligned(ALLOC_PIC, total_sz, 32);
+    if (data == NULL) {
+        dav1d_log(c, "Failed to allocate analyzer memory of size %zu\n", total_sz);
+        return -1;
+    }
+
+    const int has_chroma = p->p.layout != DAV1D_PIXEL_LAYOUT_I400;
+#define fill_pixmaps(name) \
+    p->name[0] = data; \
+    p->name[1] = has_chroma ? data + y_sz : NULL; \
+    p->name[2] = has_chroma ? data + y_sz + uv_sz : NULL; \
+    data += y_sz + 2 * uv_sz
+    if (analyzer_flags & EXPORT_PREDICTION) {
+        fill_pixmaps(pred);
+    }
+    if (analyzer_flags & EXPORT_PREFILTER) {
+        fill_pixmaps(pre_lpf);
+    }
+#undef fill_pixmaps
+    if (analyzer_flags & EXPORT_BLKDATA) {
+        p->blk_data = data;
+        data += blk_sz;
+    }
+
+    return 0;
+}
+
 
 void dav1d_picture_free_itut_t35(const uint8_t *const data, void *const user_data) {
     struct itut_t35_ctx_context *itut_t35_ctx = user_data;
@@ -143,6 +207,11 @@ static int picture_alloc(Dav1dContext *const c,
     pic_ctx->allocator = *p_allocator;
     pic_ctx->pic = *p;
     p->ref = dav1d_ref_init(&pic_ctx->ref, pic_ctx, free_buffer, c->pic_ctx_pool, 0);
+
+    if (picture_alloc_analyzer_storage(c, p, c->analyzer_flags) < 0) {
+        dav1d_mem_pool_push(c->pic_ctx_pool, pic_ctx);
+        return -1;
+    }
 
     p->seq_hdr_ref = seq_hdr_ref;
     if (seq_hdr_ref) dav1d_ref_inc(seq_hdr_ref);

@@ -286,4 +286,12 @@ typedef struct Av1Block {
     };
 } Av1Block;
 
+// analyzer flags
+#define EXPORT_PREDICTION (1 << 0)
+#define EXPORT_PREFILTER  (1 << 1)
+#define EXPORT_BITSUSED   (1 << 2)
+#define EXPORT_BITSPERBLK (1 << 3)
+#define EXPORT_BLKDATA    (1 << 4)
+#define EXPORT_INVISIBLE  (1 << 5)
+
 #endif /* DAV1D_SRC_LEVELS_H */

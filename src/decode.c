@@ -687,7 +687,10 @@ static int decode_b(Dav1dTaskContext *const t,
                     const enum EdgeFlags intra_edge_flags) {
     Dav1dTileState *const ts = t->ts;
     const Dav1dFrameContext *const f = t->f;
-    Av1Block b_mem, *const b = t->frame_thread.pass ?
+    const Dav1dContext *const c = f->c;
+    Av1Block b_mem, *const b = c->analyzer_flags & EXPORT_BLKDATA ?
+        &((Av1Block *) f->cur.blk_data)[t->by * f->b4_stride + t->bx] :
+        t->frame_thread.pass ?
         &f->frame_thread.b[t->by * f->b4_stride + t->bx] : &b_mem;
     const uint8_t *const b_dim = dav1d_block_dimensions[bs];
     const int bx4 = t->bx & 31, by4 = t->by & 31;
@@ -2145,7 +2148,10 @@ static int decode_sb(Dav1dTaskContext *const t, const enum BlockLevel bl,
 
     if (have_h_split && have_v_split) {
         if (t->frame_thread.pass == 2) {
-            const Av1Block *const b = &f->frame_thread.b[t->by * f->b4_stride + t->bx];
+            const Dav1dContext *const c = f->c;
+            const Av1Block *const b = c->analyzer_flags & EXPORT_BLKDATA ?
+                &((Av1Block *) f->cur.blk_data)[t->by * f->b4_stride + t->bx] :
+                &f->frame_thread.b[t->by * f->b4_stride + t->bx];
             bp = b->bl == bl ? b->bp : PARTITION_SPLIT;
         } else {
             bp = dav1d_msac_decode_symbol_adapt16(&ts->msac, pc,
@@ -2322,7 +2328,10 @@ static int decode_sb(Dav1dTaskContext *const t, const enum BlockLevel bl,
     } else if (have_h_split) {
         unsigned is_split;
         if (t->frame_thread.pass == 2) {
-            const Av1Block *const b = &f->frame_thread.b[t->by * f->b4_stride + t->bx];
+            const Dav1dContext *const c = f->c;
+            const Av1Block *const b = c->analyzer_flags & EXPORT_BLKDATA ?
+                &((Av1Block *) f->cur.blk_data)[t->by * f->b4_stride + t->bx] :
+                &f->frame_thread.b[t->by * f->b4_stride + t->bx];
             is_split = b->bl != bl;
         } else {
             is_split = dav1d_msac_decode_bool(&ts->msac,
@@ -2350,7 +2359,10 @@ static int decode_sb(Dav1dTaskContext *const t, const enum BlockLevel bl,
         assert(have_v_split);
         unsigned is_split;
         if (t->frame_thread.pass == 2) {
-            const Av1Block *const b = &f->frame_thread.b[t->by * f->b4_stride + t->bx];
+            const Dav1dContext *const c = f->c;
+            const Av1Block *const b = c->analyzer_flags & EXPORT_BLKDATA ?
+                &((Av1Block *) f->cur.blk_data)[t->by * f->b4_stride + t->bx] :
+                &f->frame_thread.b[t->by * f->b4_stride + t->bx];
             is_split = b->bl != bl;
         } else {
             is_split = dav1d_msac_decode_bool(&ts->msac,
@@ -3368,6 +3380,7 @@ int dav1d_submit_frame(Dav1dContext *const c) {
                 progress != FRAME_ERROR)
             {
                 dav1d_thread_picture_ref(&c->out, out_delayed);
+                c->out.p.invisible = !out_delayed->visible;
                 c->event_flags |= dav1d_picture_get_event_flags(out_delayed);
             }
             dav1d_thread_picture_unref(out_delayed);
@@ -3546,6 +3559,7 @@ int dav1d_submit_frame(Dav1dContext *const c) {
     if (c->n_fc == 1) {
         if (f->frame_hdr->show_frame || c->output_invisible_frames) {
             dav1d_thread_picture_ref(&c->out, &f->sr_cur);
+            c->out.p.invisible = !f->frame_hdr->show_frame;
             c->event_flags |= dav1d_picture_get_event_flags(&f->sr_cur);
         }
     } else {

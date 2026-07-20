@@ -102,6 +102,21 @@ typedef struct Dav1dPicture {
     struct Dav1dRef *ref; ///< Frame data allocation origin
 
     void *allocator_data; ///< pointer managed by the allocator
+
+    /// --------------------------
+    /// Everything below this line is from the analyzer extension.
+
+    // In addition to the reconstruction (which is stored in data), also export:
+    //   pred: The prediction image
+    //   pre_lpf: The reconstruction prior to loop filtering
+    void *pred[3], *pre_lpf[3];
+
+    // Give access to the internal block data. Internally, the data is in the
+    // format of the Av1Block struct.
+    void *blk_data;
+
+    // Indicate if this frame is meant for output or if it is an invisible frame
+    int invisible;
 } Dav1dPicture;
 
 typedef struct Dav1dPicAllocator {

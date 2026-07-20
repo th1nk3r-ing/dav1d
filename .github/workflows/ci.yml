@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install build dependencies
+        run: pip install meson ninja
+
+      - name: Install NASM (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Install NASM (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_REQUIRE_TAP_TRUST: 1
+        run: brew install nasm
+
+      - name: Install NASM (Windows)
+        if: runner.os == 'Windows'
+        run: choco install nasm --no-progress
+
+      - name: Configure (meson setup)
+        run: >
+          meson setup build
+          --default-library=shared
+          --buildtype=release
+          -Denable_asm=true
+          -Denable_tools=false
+          -Denable_tests=false
+
+      - name: Build (ninja)
+        run: ninja -C build
+
+      - name: List build output (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ls -la build/src/
+
+      - name: List build output (Windows)
+        if: runner.os == 'Windows'
+        run: dir build\src\
+
+      - name: Copy artifact (Linux)
+        if: runner.os == 'Linux'
+        run: cp -L build/src/libdav1d.so libdav1d-linux-x64.so
+
+      - name: Copy artifact (macOS)
+        if: runner.os == 'macOS'
+        run: cp build/src/libdav1d.dylib libdav1d-macos-arm64.dylib
+
+      - name: Copy artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cp build/src/dav1d.dll dav1d-win-x64.dll 2>/dev/null || cp build/src/dav1d-0.dll dav1d-win-x64.dll
+
+      - name: Verify analyzer exports (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if nm -D libdav1d-linux-x64.so | grep -qE 'dav1d_(set_analyzer|default_analyzer)'; then
+            echo "Analyzer symbols OK"
+          else
+            echo "WARNING: analyzer symbols not exported (non-internals build?)"
+          fi
+
+      - name: Verify analyzer exports (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if nm -g libdav1d-macos-arm64.dylib | grep -qE 'dav1d_(set_analyzer|default_analyzer)'; then
+            echo "Analyzer symbols OK"
+          else
+            echo "WARNING: analyzer symbols not exported (non-internals build?)"
+          fi
+
+      - name: Verify analyzer exports (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dumpbin /exports dav1d-win-x64.dll | findstr /i "analyzer" >nul && echo "Analyzer symbols OK" || echo "WARNING: analyzer symbols not exported (non-internals build?)"
+
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dav1d-linux-x64
+          path: libdav1d-linux-x64.so
+          retention-days: 30
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dav1d-macos-arm64
+          path: libdav1d-macos-arm64.dylib
+          retention-days: 30
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dav1d-win-x64
+          path: dav1d-win-x64.dll
+          retention-days: 30

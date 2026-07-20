@@ -189,6 +189,8 @@ struct Dav1dContext {
     int output_invisible_frames;
     enum Dav1dInloopFilterType inloop_filters;
     enum Dav1dDecodeFrameType decode_frame_type;
+
+    unsigned analyzer_flags;
     int drain;
     enum PictureFlags frame_flags;
     enum Dav1dEventFlags event_flags;

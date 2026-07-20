@@ -86,6 +86,15 @@ COLD void dav1d_default_settings(Dav1dSettings *const s) {
     s->decode_frame_type = DAV1D_DECODEFRAMETYPE_ALL;
 }
 
+void dav1d_default_analyzer_flags(Dav1dAnalyzerFlags *const s) {
+    s->export_prediction = 0;
+    s->export_prefilter = 0;
+    s->export_bitsperblk = 0;
+    s->export_bitsused = 0;
+    s->export_blkdata = 0;
+    s->export_invisible_frames = 0;
+}
+
 static void close_internal(Dav1dContext **const c_out, int flush);
 
 #if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__)
@@ -300,6 +309,20 @@ error:
     return DAV1D_ERR(ENOMEM);
 }
 
+int dav1d_set_analyzer_flags(Dav1dContext *const c, const Dav1dAnalyzerFlags *const s) {
+    c->analyzer_flags = 0;
+    if (s->export_prediction) c->analyzer_flags |= EXPORT_PREDICTION;
+    if (s->export_prefilter)  c->analyzer_flags |= EXPORT_PREFILTER;
+    if (s->export_blkdata)    c->analyzer_flags |= EXPORT_BLKDATA;
+    if (s->export_bitsperblk) c->analyzer_flags |= EXPORT_BITSPERBLK;
+    if (s->export_bitsused)   c->analyzer_flags |= EXPORT_BITSUSED;
+    if (s->export_invisible_frames) {
+        c->analyzer_flags |= EXPORT_INVISIBLE;
+        c->output_invisible_frames = 1;
+    }
+    return 0;
+}
+
 static int has_grain(const Dav1dPicture *const pic)
 {
     const Dav1dFilmGrainData *fgdata = &pic->frame_hdr->film_grain.data;
@@ -395,6 +418,7 @@ static int drain_picture(Dav1dContext *const c, Dav1dPicture *const out) {
                 progress != FRAME_ERROR)
             {
                 dav1d_thread_picture_ref(&c->out, out_delayed);
+                c->out.p.invisible = !out_delayed->visible;
                 c->event_flags |= dav1d_picture_get_event_flags(out_delayed);
             }
             dav1d_thread_picture_unref(out_delayed);
