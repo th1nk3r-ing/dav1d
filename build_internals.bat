@@ -46,9 +46,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- ensure python/meson/nasm reachable (vcvars overwrote PATH) ---
-where python >nul 2>&1 || set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python314;%LOCALAPPDATA%\Programs\Python\Python314\Scripts"
-where nasm >nul 2>&1 || set "PATH=%PATH%;%ProgramFiles%\NASM"
+rem --- ensure python/meson/nasm reachable (vcvars may have overwritten PATH) ---
+rem     Python main dir may already be on PATH while Scripts (meson/ninja) is not,
+rem     so check each independently.
+set "PY_BASE=%LOCALAPPDATA%\Programs\Python\Python314"
+set "PY_SCRIPTS=%PY_BASE%\Scripts"
+where python >nul 2>&1 || set "PATH=%PATH%;%PY_BASE%"
+where meson  >nul 2>&1 || set "PATH=%PATH%;%PY_SCRIPTS%"
+where ninja  >nul 2>&1 || set "PATH=%PATH%;%PY_SCRIPTS%"
+where nasm   >nul 2>&1 || set "PATH=%PATH%;%ProgramFiles%\NASM"
 
 where meson >nul 2>&1 || (
     echo [ERROR] meson not found on PATH. Install: pip install meson

@@ -151,10 +151,8 @@ static int picture_alloc_analyzer_storage(Dav1dContext *const c,
         fill_pixmaps(pre_lpf);
     }
 #undef fill_pixmaps
-    if (analyzer_flags & EXPORT_BLKDATA) {
+    if (analyzer_flags & EXPORT_BLKDATA)
         p->blk_data = data;
-        data += blk_sz;
-    }
 
     return 0;
 }
@@ -204,14 +202,15 @@ static int picture_alloc(Dav1dContext *const c,
         return res;
     }
 
-    pic_ctx->allocator = *p_allocator;
-    pic_ctx->pic = *p;
-    p->ref = dav1d_ref_init(&pic_ctx->ref, pic_ctx, free_buffer, c->pic_ctx_pool, 0);
-
     if (picture_alloc_analyzer_storage(c, p, c->analyzer_flags) < 0) {
+        p_allocator->release_picture_callback(p, p_allocator->cookie);
         dav1d_mem_pool_push(c->pic_ctx_pool, pic_ctx);
         return -1;
     }
+
+    pic_ctx->allocator = *p_allocator;
+    pic_ctx->pic = *p;
+    p->ref = dav1d_ref_init(&pic_ctx->ref, pic_ctx, free_buffer, c->pic_ctx_pool, 0);
 
     p->seq_hdr_ref = seq_hdr_ref;
     if (seq_hdr_ref) dav1d_ref_inc(seq_hdr_ref);

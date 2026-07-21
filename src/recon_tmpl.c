@@ -49,10 +49,11 @@
 static void copy_plane(pixel *dst, const pixel *src,
                        const ptrdiff_t stride, const int w, int h)
 {
+    const ptrdiff_t px_stride = PXSTRIDE(stride);
     do {
         pixel_copy(dst, src, w);
-        dst += stride;
-        src += stride;
+        dst += px_stride;
+        src += px_stride;
     } while (--h);
 }
 

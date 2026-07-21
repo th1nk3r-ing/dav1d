@@ -18,9 +18,9 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -72,7 +72,7 @@ jobs:
       - name: Copy artifact (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: cp build/src/dav1d.dll dav1d-win-x64.dll 2>/dev/null || cp build/src/dav1d-0.dll dav1d-win-x64.dll
+        run: cp build/src/libdav1d.dll dav1d-win-x64.dll 2>/dev/null || cp build/src/dav1d.dll dav1d-win-x64.dll 2>/dev/null || cp build/src/dav1d-0.dll dav1d-win-x64.dll
 
       - name: Verify analyzer exports (Linux)
         if: runner.os == 'Linux'
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload artifact (Linux)
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dav1d-linux-x64
           path: libdav1d-linux-x64.so
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload artifact (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dav1d-macos-arm64
           path: libdav1d-macos-arm64.dylib
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload artifact (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dav1d-win-x64
           path: dav1d-win-x64.dll

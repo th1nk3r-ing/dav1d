@@ -316,10 +316,8 @@ int dav1d_set_analyzer_flags(Dav1dContext *const c, const Dav1dAnalyzerFlags *co
     if (s->export_blkdata)    c->analyzer_flags |= EXPORT_BLKDATA;
     if (s->export_bitsperblk) c->analyzer_flags |= EXPORT_BITSPERBLK;
     if (s->export_bitsused)   c->analyzer_flags |= EXPORT_BITSUSED;
-    if (s->export_invisible_frames) {
-        c->analyzer_flags |= EXPORT_INVISIBLE;
+    if (s->export_invisible_frames)
         c->output_invisible_frames = 1;
-    }
     return 0;
 }
 
