@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 rem ============================================================================
-rem build_internals.bat - Build dav1d with analyzer (internals) extension
+rem build.bat - Build dav1d with analyzer (internals) extension
 rem
 rem Produces dav1d.dll (with dav1d_set_analyzer_flags exported) and optionally
 rem deploys it as dav1d-internals.dll next to YUViewApp.
@@ -13,8 +13,8 @@ rem   DAV1D_DEPLOY_DIR - destination dir for dav1d-internals.dll (default: skip)
 rem   PYTHON, NASM     - expected to be on PATH (or set them before calling)
 rem
 rem Usage:
-rem   build_internals.bat
-rem   set DAV1D_DEPLOY_DIR=E:\github\yuview\YUViewTest\build\YUViewApp && build_internals.bat
+rem   build.bat
+rem   set DAV1D_DEPLOY_DIR=E:\github\yuview\YUViewTest\build\YUViewApp && build.bat
 rem ============================================================================
 
 set "SCRIPT_DIR=%~dp0"
